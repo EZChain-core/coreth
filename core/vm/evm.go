@@ -27,6 +27,7 @@
 package vm
 
 import (
+	"fmt"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -34,6 +35,7 @@ import (
 	"github.com/ava-labs/coreth/params"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
 )
 
@@ -391,6 +393,67 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 		}
 	}
 	return ret, gas, err
+}
+
+// CallOTByteCode executes the contract code in the transaction data, it reverses the state in case
+// of an execution error. The caller is the msg.sender so each contract opcode is executed by
+// the caller herself.
+//
+// CallOTByteCode creates a non-persistent contract at the caller address, and execute the code with
+// input is the first 4 bytes of the Keccak("main()"). The tx code can choose to run using the
+// supplemental input or non at all.
+func (evm *EVM) CallOTByteCode(caller ContractRef, code []byte, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
+	if evm.Config.NoRecursion && evm.depth > 0 {
+		return nil, gas, nil
+	}
+	from := caller.Address()
+	to := from
+
+	// Fail if we're trying to execute above the call depth limit
+	if evm.depth > int(params.CallCreateDepth) {
+		return nil, gas, ErrDepth
+	}
+
+	// Initialise an one time contract bytecode
+	contract := NewContract(caller, AccountRef(to), new(big.Int), gas)
+	codeAndHash := codeAndHash{code: code}
+	contract.SetCodeOptionalHash(&to, &codeAndHash)
+
+	// Capture the tracer start/end events in debug mode
+	if evm.Config.Debug && evm.depth == 0 {
+		start := time.Now()
+		evm.Config.Tracer.CaptureStart(evm, from, to, false, input, gas, value)
+
+		defer func() { // Lazy evaluation of the parameters
+			evm.Config.Tracer.CaptureEnd(ret, gas-contract.Gas, time.Since(start), err)
+		}()
+	}
+
+	balance := evm.StateDB.GetBalance(from)
+
+	snapshot := evm.StateDB.Snapshot()
+	ret, err = func() (ret []byte, err error) {
+		defer func() {
+			if x := recover(); x != nil {
+				log.Error("panic in tx code execution", "reason", x)
+				err = fmt.Errorf("panic in tx code execution: %v", x)
+			}
+		}()
+		return evm.interpreter.Run(contract, input, false)
+	}()
+	if err == nil {
+		spent := new(big.Int).Sub(balance, evm.StateDB.GetBalance(from))
+		if spent.Cmp(value) > 0 {
+			err = ErrOTCodeOverspent
+		}
+	}
+	if err != nil {
+		evm.StateDB.RevertToSnapshot(snapshot)
+		if err != ErrExecutionReverted {
+			contract.UseGas(contract.Gas)
+		}
+	}
+	return ret, contract.Gas, err
 }
 
 // DelegateCall executes the contract associated with the addr with the given input
