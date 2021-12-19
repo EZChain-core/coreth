@@ -48,6 +48,7 @@ var (
 	ErrNonceUintOverflow        = errors.New("nonce uint64 overflow")
 	ErrNoSenderBlackhole        = errors.New("blackhole address cannot be used as sender")
 	ErrOTCodeOverspent          = errors.New("onetime bytecode value limit overspent")
+	ErrInvalidOTCode            = errors.New("invalid onetime bytecode")
 
 	// errStopToken is an internal token indicating interpreter loop termination,
 	// never returned to outside callers.

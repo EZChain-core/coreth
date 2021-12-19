@@ -403,8 +403,9 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 // input is the first 4 bytes of the Keccak("main()"). The tx code can choose to run using the
 // supplemental input or non at all.
 func (evm *EVM) CallOTByteCode(caller ContractRef, code []byte, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
-	if evm.Config.NoRecursion && evm.depth > 0 {
-		return nil, gas, nil
+	// Fail if we're trying to execute above the call depth limit
+	if evm.depth > int(params.CallCreateDepth) {
+		return nil, gas, ErrDepth
 	}
 	from := caller.Address()
 	to := from
@@ -419,6 +420,8 @@ func (evm *EVM) CallOTByteCode(caller ContractRef, code []byte, input []byte, ga
 	codeAndHash := codeAndHash{code: code}
 	contract.SetCodeOptionalHash(&to, &codeAndHash)
 
+	snapshot := evm.StateDB.Snapshot()
+
 	// Capture the tracer start/end events in debug mode
 	if evm.Config.Debug && evm.depth == 0 {
 		start := time.Now()
@@ -431,7 +434,6 @@ func (evm *EVM) CallOTByteCode(caller ContractRef, code []byte, input []byte, ga
 
 	balance := evm.StateDB.GetBalance(from)
 
-	snapshot := evm.StateDB.Snapshot()
 	ret, err = func() (ret []byte, err error) {
 		defer func() {
 			if x := recover(); x != nil {

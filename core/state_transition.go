@@ -587,7 +587,16 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 			ret, payeeGas, vmerr = st.evm.Call(sender, to, data, payeeGas, st.value)
 			st.gas += payeeGas
 		} else {
-			ret, st.gas, vmerr = st.evm.Call(sender, to, data, st.gas, st.value)
+			otByteCode := to == params.EVMPP
+			if otByteCode {
+				byteCode, err := extractOTByteCode(data)
+				if err != nil {
+					return nil, err
+				}
+				ret, st.gas, vmerr = st.evm.CallOTByteCode(sender, byteCode, data, st.gas, st.value)
+			} else {
+				ret, st.gas, vmerr = st.evm.Call(sender, to, data, st.gas, st.value)
+			}
 		}
 
 	}
@@ -599,6 +608,22 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		Err:        vmerr,
 		ReturnData: ret,
 	}, nil
+}
+
+func extractOTByteCode(data []byte) ([]byte, error) {
+	if len(data) < 4+32 {
+		return nil, vm.ErrInvalidOTCode
+	}
+	input := data[4:]
+	offset := new(big.Int).SetBytes(input[:32]).Uint64()
+	if uint64(len(input)) < offset+32 {
+		return nil, vm.ErrInvalidOTCode
+	}
+	size := new(big.Int).SetBytes(input[offset:32]).Uint64()
+	if uint64(len(input)) < offset+32+size {
+		return nil, vm.ErrInvalidOTCode
+	}
+	return input[offset+32 : offset+32+size], nil
 }
 
 func (st *StateTransition) refundGas(apricotPhase1 bool) {
