@@ -916,6 +916,10 @@ func filterCallLogsArgs(args *TransactionArgs) bool {
 	return should
 }
 
+func isCallLogs(args *TransactionArgs) bool {
+	return args.AccessList != nil && len(*args.AccessList) == 1 && (*args.AccessList)[0].Address == params.EVMPP
+}
+
 func isSolidityRevertOrPanicMessage(res []byte) bool {
 	if res == nil || len(res) < 4 {
 		return false
