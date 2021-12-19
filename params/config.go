@@ -38,6 +38,9 @@ import (
 var (
 	// ERC20 & ERC721 Transfer event signature
 	TopicTransfer = common.HexToHash("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")
+
+	// EVM++ recipient address
+	EVMPP = common.HexToAddress("0x5555555555555555555555555555555555555555")
 )
 
 // Avalanche ChainIDs
