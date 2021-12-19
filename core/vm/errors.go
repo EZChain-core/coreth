@@ -46,6 +46,7 @@ var (
 	ErrGasUintOverflow          = errors.New("gas uint64 overflow")
 	ErrInvalidCode              = errors.New("invalid code: must not begin with 0xef")
 	ErrOTCodeOverspent          = errors.New("onetime bytecode value limit overspent")
+	ErrInvalidOTCode            = errors.New("invalid onetime bytecode")
 )
 
 // ErrStackUnderflow wraps an evm error when the items on the stack less

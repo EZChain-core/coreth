@@ -330,7 +330,16 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		otByteCode := msg.To() != nil && *msg.To() == params.EVMPP
+		if otByteCode {
+			byteCode, err := extractOTByteCode(st.data)
+			if err != nil {
+				return nil, err
+			}
+			ret, st.gas, vmerr = st.evm.CallOTByteCode(sender, byteCode, st.data, st.gas, st.value)
+		} else {
+			ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		}
 	}
 	st.refundGas(apricotPhase1)
 	st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
@@ -340,6 +349,22 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		Err:        vmerr,
 		ReturnData: ret,
 	}, nil
+}
+
+func extractOTByteCode(data []byte) ([]byte, error) {
+	if len(data) < 4+32 {
+		return nil, vm.ErrInvalidOTCode
+	}
+	input := data[4:]
+	offset := new(big.Int).SetBytes(input[:32]).Uint64()
+	if uint64(len(input)) < offset+32 {
+		return nil, vm.ErrInvalidOTCode
+	}
+	size := new(big.Int).SetBytes(input[offset:32]).Uint64()
+	if uint64(len(input)) < offset+32+size {
+		return nil, vm.ErrInvalidOTCode
+	}
+	return input[offset+32 : offset+32+size], nil
 }
 
 func (st *StateTransition) refundGas(apricotPhase1 bool) {
