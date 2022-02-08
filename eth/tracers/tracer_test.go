@@ -33,9 +33,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ava-labs/coreth/core/state"
-	"github.com/ava-labs/coreth/core/vm"
-	"github.com/ava-labs/coreth/params"
+	"github.com/EZChain-core/coreth/core/state"
+	"github.com/EZChain-core/coreth/core/vm"
+	"github.com/EZChain-core/coreth/params"
 	"github.com/ethereum/go-ethereum/common"
 )
 

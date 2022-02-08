@@ -9,12 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ava-labs/coreth/consensus/dummy"
-	"github.com/ava-labs/coreth/core/rawdb"
-	"github.com/ava-labs/coreth/core/state"
-	"github.com/ava-labs/coreth/core/types"
-	"github.com/ava-labs/coreth/ethdb"
-	"github.com/ava-labs/coreth/params"
+	"github.com/EZChain-core/coreth/consensus/dummy"
+	"github.com/EZChain-core/coreth/core/rawdb"
+	"github.com/EZChain-core/coreth/core/state"
+	"github.com/EZChain-core/coreth/core/types"
+	"github.com/EZChain-core/coreth/ethdb"
+	"github.com/EZChain-core/coreth/params"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )

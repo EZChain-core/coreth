@@ -15,7 +15,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/units"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
-	"github.com/ava-labs/coreth/params"
+	"github.com/EZChain-core/coreth/params"
 	"github.com/ethereum/go-ethereum/common"
 )
 

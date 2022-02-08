@@ -29,7 +29,7 @@ package trie
 import (
 	"testing"
 
-	"github.com/ava-labs/coreth/ethdb/memorydb"
+	"github.com/EZChain-core/coreth/ethdb/memorydb"
 	"github.com/ethereum/go-ethereum/common"
 )
 

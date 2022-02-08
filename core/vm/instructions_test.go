@@ -33,7 +33,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/ava-labs/coreth/params"
+	"github.com/EZChain-core/coreth/params"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/holiman/uint256"

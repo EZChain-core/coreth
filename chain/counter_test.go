@@ -15,7 +15,7 @@ import (
 
 	"testing"
 
-	"github.com/ava-labs/coreth/core/types"
+	"github.com/EZChain-core/coreth/core/types"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/ethereum/go-ethereum/log"

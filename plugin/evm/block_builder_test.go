@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ava-labs/coreth/params"
+	"github.com/EZChain-core/coreth/params"
 
 	"github.com/ava-labs/avalanchego/snow"
 )

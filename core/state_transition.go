@@ -36,10 +36,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/ava-labs/coreth/accounts/abi"
-	"github.com/ava-labs/coreth/core/types"
-	"github.com/ava-labs/coreth/core/vm"
-	"github.com/ava-labs/coreth/params"
+	"github.com/EZChain-core/coreth/accounts/abi"
+	"github.com/EZChain-core/coreth/core/types"
+	"github.com/EZChain-core/coreth/core/vm"
+	"github.com/EZChain-core/coreth/params"
 	"github.com/ethereum/go-ethereum/common"
 )
 

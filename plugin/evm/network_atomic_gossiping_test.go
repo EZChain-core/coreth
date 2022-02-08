@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ava-labs/coreth/plugin/evm/message"
+	"github.com/EZChain-core/coreth/plugin/evm/message"
 )
 
 // locally issued txs should be gossiped

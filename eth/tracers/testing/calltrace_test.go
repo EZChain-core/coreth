@@ -10,19 +10,19 @@ import (
 	"testing"
 	"unicode"
 
-	"github.com/ava-labs/coreth/core"
-	"github.com/ava-labs/coreth/core/rawdb"
-	"github.com/ava-labs/coreth/core/types"
-	"github.com/ava-labs/coreth/core/vm"
-	"github.com/ava-labs/coreth/eth/tracers"
-	"github.com/ava-labs/coreth/tests"
+	"github.com/EZChain-core/coreth/core"
+	"github.com/EZChain-core/coreth/core/rawdb"
+	"github.com/EZChain-core/coreth/core/types"
+	"github.com/EZChain-core/coreth/core/vm"
+	"github.com/EZChain-core/coreth/eth/tracers"
+	"github.com/EZChain-core/coreth/tests"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/rlp"
 
 	// Force-load the native, to trigger registration
-	_ "github.com/ava-labs/coreth/eth/tracers/native"
+	_ "github.com/EZChain-core/coreth/eth/tracers/native"
 )
 
 type callContext struct {

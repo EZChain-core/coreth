@@ -33,7 +33,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/ava-labs/coreth/core/rawdb"
+	"github.com/EZChain-core/coreth/core/rawdb"
 	"github.com/ethereum/go-ethereum/common"
 )
 

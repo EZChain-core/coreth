@@ -11,7 +11,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/vms/rpcchainvm"
 
-	"github.com/ava-labs/coreth/plugin/evm"
+	"github.com/EZChain-core/coreth/plugin/evm"
 )
 
 func main() {

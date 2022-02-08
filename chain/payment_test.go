@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ava-labs/coreth/core/types"
+	"github.com/EZChain-core/coreth/core/types"
 	"github.com/ethereum/go-ethereum/log"
 )
 

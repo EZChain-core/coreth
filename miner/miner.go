@@ -28,10 +28,10 @@
 package miner
 
 import (
-	"github.com/ava-labs/coreth/consensus"
-	"github.com/ava-labs/coreth/core"
-	"github.com/ava-labs/coreth/core/types"
-	"github.com/ava-labs/coreth/params"
+	"github.com/EZChain-core/coreth/consensus"
+	"github.com/EZChain-core/coreth/core"
+	"github.com/EZChain-core/coreth/core/types"
+	"github.com/EZChain-core/coreth/params"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/event"
 )

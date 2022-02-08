@@ -7,14 +7,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ava-labs/coreth/consensus/dummy"
-	"github.com/ava-labs/coreth/core"
-	"github.com/ava-labs/coreth/core/state"
-	"github.com/ava-labs/coreth/core/types"
-	"github.com/ava-labs/coreth/eth"
-	"github.com/ava-labs/coreth/ethdb"
-	"github.com/ava-labs/coreth/node"
-	"github.com/ava-labs/coreth/rpc"
+	"github.com/EZChain-core/coreth/consensus/dummy"
+	"github.com/EZChain-core/coreth/core"
+	"github.com/EZChain-core/coreth/core/state"
+	"github.com/EZChain-core/coreth/core/types"
+	"github.com/EZChain-core/coreth/eth"
+	"github.com/EZChain-core/coreth/ethdb"
+	"github.com/EZChain-core/coreth/node"
+	"github.com/EZChain-core/coreth/rpc"
 	"github.com/ethereum/go-ethereum/common"
 )
 

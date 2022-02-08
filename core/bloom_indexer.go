@@ -20,10 +20,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/ava-labs/coreth/core/bloombits"
-	"github.com/ava-labs/coreth/core/rawdb"
-	"github.com/ava-labs/coreth/core/types"
-	"github.com/ava-labs/coreth/ethdb"
+	"github.com/EZChain-core/coreth/core/bloombits"
+	"github.com/EZChain-core/coreth/core/rawdb"
+	"github.com/EZChain-core/coreth/core/types"
+	"github.com/EZChain-core/coreth/ethdb"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/bitutil"
 )

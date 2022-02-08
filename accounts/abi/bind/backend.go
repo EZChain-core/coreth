@@ -31,8 +31,8 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/ava-labs/coreth/core/types"
-	"github.com/ava-labs/coreth/interfaces"
+	"github.com/EZChain-core/coreth/core/types"
+	"github.com/EZChain-core/coreth/interfaces"
 	"github.com/ethereum/go-ethereum/common"
 )
 

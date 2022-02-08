@@ -40,7 +40,7 @@ import (
 	"text/template"
 	"unicode"
 
-	"github.com/ava-labs/coreth/accounts/abi"
+	"github.com/EZChain-core/coreth/accounts/abi"
 	"github.com/ethereum/go-ethereum/log"
 )
 

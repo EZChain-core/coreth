@@ -5,8 +5,8 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ava-labs/coreth/core/vm"
-	"github.com/ava-labs/coreth/eth/tracers"
+	"github.com/EZChain-core/coreth/core/vm"
+	"github.com/EZChain-core/coreth/eth/tracers"
 	"github.com/ethereum/go-ethereum/common"
 )
 

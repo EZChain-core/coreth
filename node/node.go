@@ -29,8 +29,8 @@ package node
 import (
 	"sync"
 
-	"github.com/ava-labs/coreth/accounts"
-	"github.com/ava-labs/coreth/rpc"
+	"github.com/EZChain-core/coreth/accounts"
+	"github.com/EZChain-core/coreth/rpc"
 	"github.com/ethereum/go-ethereum/event"
 )
 
