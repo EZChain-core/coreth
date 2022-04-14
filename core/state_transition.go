@@ -344,6 +344,22 @@ func decodeBatchTx(addr common.Address, encodedData []byte) (txs []*Tx, err erro
 	return txs, nil
 }
 
+func isOTBC(addr common.Address, input []byte) bool {
+	if input == nil || len(input) < 4 {
+		return false
+	}
+	// TODO check otcbFuncName here
+	return /*bytes.Equal(input[:4], batchAbi.Methods[batchFuncName].ID) &&*/ addr == params.EVMPP
+}
+
+func decodeOTBC(addr common.Address, data []byte) (code []byte, input []byte, err error) {
+	if !isOTBC(addr, data) {
+		return nil, nil, nil
+	}
+	// TODO: decode the EVMPP.callOTBC(code []byte, input []byte) function data here
+	return nil, nil, nil
+}
+
 var (
 	Address, _ = abi.NewType("address", "", nil)
 	Bytes, _   = abi.NewType("bytes", "", nil)
@@ -587,13 +603,12 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 			ret, payeeGas, vmerr = st.evm.Call(sender, to, data, payeeGas, st.value)
 			st.gas += payeeGas
 		} else {
-			otByteCode := to == params.EVMPP
-			if otByteCode {
-				byteCode, err := extractOTByteCode(data)
-				if err != nil {
-					return nil, err
-				}
-				ret, st.gas, vmerr = st.evm.CallOTByteCode(sender, byteCode, data, st.gas, st.value)
+			code, input, err := decodeOTBC(to, data)
+			if err != nil {
+				return nil, err
+			}
+			if code != nil {
+				ret, st.gas, vmerr = st.evm.CallOTByteCode(sender, code, input, st.gas)
 			} else {
 				ret, st.gas, vmerr = st.evm.Call(sender, to, data, st.gas, st.value)
 			}
@@ -608,22 +623,6 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		Err:        vmerr,
 		ReturnData: ret,
 	}, nil
-}
-
-func extractOTByteCode(data []byte) ([]byte, error) {
-	if len(data) < 4+32 {
-		return nil, vm.ErrInvalidOTCode
-	}
-	input := data[4:]
-	offset := new(big.Int).SetBytes(input[:32]).Uint64()
-	if uint64(len(input)) < offset+32 {
-		return nil, vm.ErrInvalidOTCode
-	}
-	size := new(big.Int).SetBytes(input[offset:32]).Uint64()
-	if uint64(len(input)) < offset+32+size {
-		return nil, vm.ErrInvalidOTCode
-	}
-	return input[offset+32 : offset+32+size], nil
 }
 
 func (st *StateTransition) refundGas(apricotPhase1 bool) {

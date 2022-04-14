@@ -27,7 +27,6 @@
 package vm
 
 import (
-	"fmt"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -35,7 +34,6 @@ import (
 	"github.com/ava-labs/coreth/params"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
 )
 
@@ -395,67 +393,42 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 	return ret, gas, err
 }
 
-// CallOTByteCode executes the contract code in the transaction data, it reverses the state in case
-// of an execution error. The caller is the msg.sender so each contract opcode is executed by
-// the caller herself.
+// CalOTBC executes an one-time bytecode in the context of the caller account with the given input
+// as parameters. It reverses the state in case of an execution error.
 //
-// CallOTByteCode creates a non-persistent contract at the caller address, and execute the code with
-// input is the first 4 bytes of the Keccak("main()"). The tx code can choose to run using the
-// supplemental input or non at all.
-func (evm *EVM) CallOTByteCode(caller ContractRef, code []byte, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
+// CalOTBC can only be called from an EOA using the EVM++ interface.
+func (evm *EVM) CallOTByteCode(caller ContractRef, code []byte, input []byte, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	// Fail if we're trying to execute above the call depth limit
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, gas, ErrDepth
 	}
-	from := caller.Address()
-	to := from
+	var snapshot = evm.StateDB.Snapshot()
 
-	// Fail if we're trying to execute above the call depth limit
-	if evm.depth > int(params.CallCreateDepth) {
-		return nil, gas, ErrDepth
+	addr := caller.Address()
+
+	// Invoke tracer hooks that signal entering/exiting a call frame
+	if evm.Config.Debug {
+		evm.Config.Tracer.CaptureEnter(CALL, caller.Address(), addr, input, gas, nil)
+		defer func(startGas uint64) {
+			evm.Config.Tracer.CaptureExit(ret, startGas-gas, err)
+		}(gas)
 	}
 
-	// Initialise an one time contract bytecode
-	contract := NewContract(caller, AccountRef(to), new(big.Int), gas)
+	// Initialise an new One Time Bytecode contract
+	contract := NewContract(caller, AccountRef(addr), nil, gas)
 	codeAndHash := codeAndHash{code: code}
-	contract.SetCodeOptionalHash(&to, &codeAndHash)
+	contract.SetCodeOptionalHash(&addr, &codeAndHash)
 
-	snapshot := evm.StateDB.Snapshot()
+	ret, err = evm.interpreter.Run(contract, input, false)
+	gas = contract.Gas
 
-	// Capture the tracer start/end events in debug mode
-	if evm.Config.Debug && evm.depth == 0 {
-		start := time.Now()
-		evm.Config.Tracer.CaptureStart(evm, from, to, false, input, gas, value)
-
-		defer func() { // Lazy evaluation of the parameters
-			evm.Config.Tracer.CaptureEnd(ret, gas-contract.Gas, time.Since(start), err)
-		}()
-	}
-
-	balance := evm.StateDB.GetBalance(from)
-
-	ret, err = func() (ret []byte, err error) {
-		defer func() {
-			if x := recover(); x != nil {
-				log.Error("panic in tx code execution", "reason", x)
-				err = fmt.Errorf("panic in tx code execution: %v", x)
-			}
-		}()
-		return evm.interpreter.Run(contract, input, false)
-	}()
-	if err == nil {
-		spent := new(big.Int).Sub(balance, evm.StateDB.GetBalance(from))
-		if spent.Cmp(value) > 0 {
-			err = ErrOTCodeOverspent
-		}
-	}
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
 		if err != ErrExecutionReverted {
-			contract.UseGas(contract.Gas)
+			gas = 0
 		}
 	}
-	return ret, contract.Gas, err
+	return ret, gas, err
 }
 
 // DelegateCall executes the contract associated with the addr with the given input
