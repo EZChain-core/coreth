@@ -504,30 +504,30 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 
-		tx, err := st.decodeFeePayerTx()
+		payerTx, err := st.decodeFeePayerTx()
 		if err != nil {
 			return nil, err
 		}
 
 		var savedGas uint64
 
-		if tx != nil {
-			if st.gas < tx.Gas() {
+		if payerTx != nil {
+			if st.gas < payerTx.Gas() {
 				return &ExecutionResult{
 					UsedGas:    st.gasUsed(),
 					Err:        vm.ErrOutOfGas,
 					ReturnData: ret,
 				}, nil
 			}
-			savedGas = st.gas - tx.Gas() // save the remaining gas of payer
-			st.gas = tx.Gas()
+			savedGas = st.gas - payerTx.Gas() // save the remaining gas of payer
+			st.gas = payerTx.Gas()
 
-			payeeInstrinsicGas, err := IntrinsicGas(tx.Data(), tx.AccessList(), false, homestead, istanbul)
+			payeeInstrinsicGas, err := IntrinsicGas(payerTx.Data(), payerTx.AccessList(), false, homestead, istanbul)
 			if err != nil {
 				return nil, err
 			}
 
-			if tx.Gas() < payeeInstrinsicGas {
+			if payerTx.Gas() < payeeInstrinsicGas {
 				return &ExecutionResult{
 					UsedGas:    st.gasUsed(),
 					Err:        vmerr,
@@ -538,7 +538,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 			st.gas -= payeeInstrinsicGas
 
 			signer := types.MakeSigner(st.evm.ChainConfig(), st.evm.Context.BlockNumber, st.evm.Context.Time)
-			payee, err = types.Sender(signer, tx)
+			payee, err = types.Sender(signer, payerTx)
 
 			if err != nil {
 				return &ExecutionResult{
@@ -549,12 +549,12 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 			}
 
 			sender = vm.AccountRef(payee)
-			to = *tx.To()
-			data = tx.Data()
+			to = *payerTx.To()
+			data = payerTx.Data()
 
 			payeeNonce := st.state.GetNonce(payee)
 
-			if payeeNonce != tx.Nonce() {
+			if payeeNonce != payerTx.Nonce() {
 				return &ExecutionResult{
 					UsedGas:    st.gasUsed(),
 					Err:        vmerr,
@@ -570,14 +570,14 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 			st.state.AddBalance(payee, st.value)
 		}
 
-		txs, err := decodeBatchTx(to, data)
+		batchTxs, err := decodeBatchTx(to, data)
 		if err != nil {
 			return nil, err
 		}
 
-		if txs != nil {
+		if batchTxs != nil {
 			snapshot := st.evm.StateDB.Snapshot()
-			for _, tx := range txs {
+			for _, tx := range batchTxs {
 				ret, st.gas, vmerr = st.evm.Call(sender, tx.To, tx.Data, st.gas, tx.Value)
 				if vmerr != nil {
 					st.evm.StateDB.RevertToSnapshot(snapshot)
