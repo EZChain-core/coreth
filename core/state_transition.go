@@ -420,7 +420,7 @@ func (st *StateTransition) decodeFeePayerTx() (*types.Transaction, error) {
 	to := (params[0]).(common.Address)
 
 	tx := types.NewTx(&types.LegacyTx{
-		GasPrice: st.gasPrice,
+		GasPrice: big.NewInt(0),
 		To:       &to,
 		Data:     params[1].([]byte),
 		Nonce:    params[2].(*big.Int).Uint64(),
