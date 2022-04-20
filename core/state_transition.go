@@ -195,6 +195,9 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) (*ExecutionResult, error) {
 	chainId := evm.ChainConfig().ChainID.Uint64()
 	if chainId == 2613 && evm.Context.Time.Uint64() < uint64(time.Date(2022, 04, 21, 14, 0, 0, 0, time.UTC).Unix()) {
+		batchFuncName = batchFuncName1
+		batchAbi = batchAbi1
+
 		return NewStateTransition(evm, msg, gp).TransitionDb1()
 	}
 	return NewStateTransition(evm, msg, gp).TransitionDb()
@@ -302,12 +305,30 @@ func mustCreateNewType() abi.Type {
 }
 
 var (
-	batchFuncName = "call"
+	batchFuncName = "callBatch"
 	batchAbi      = abi.ABI{
 		Methods: map[string]abi.Method{
 			batchFuncName: abi.NewMethod(
 				batchFuncName,
 				batchFuncName,
+				abi.Function,
+				"",
+				false,
+				false,
+				abi.Arguments{abi.Argument{Type: mustCreateNewType()}},
+				nil),
+		},
+	}
+)
+
+// EVM++ HARDFORK
+var (
+	batchFuncName1 = "call"
+	batchAbi1      = abi.ABI{
+		Methods: map[string]abi.Method{
+			batchFuncName1: abi.NewMethod(
+				batchFuncName1,
+				batchFuncName1,
 				abi.Function,
 				"",
 				false,
