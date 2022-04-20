@@ -33,6 +33,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -192,6 +193,10 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
 func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) (*ExecutionResult, error) {
+	chainId := evm.ChainConfig().ChainID.Uint64()
+	if chainId == 2613 && evm.Context.Time.Uint64() < uint64(time.Date(2022, 04, 21, 14, 0, 0, 0, time.UTC).Unix()) {
+		return NewStateTransition(evm, msg, gp).TransitionDb1()
+	}
 	return NewStateTransition(evm, msg, gp).TransitionDb()
 }
 
@@ -297,7 +302,7 @@ func mustCreateNewType() abi.Type {
 }
 
 var (
-	batchFuncName = "callBatch"
+	batchFuncName = "call"
 	batchAbi      = abi.ABI{
 		Methods: map[string]abi.Method{
 			batchFuncName: abi.NewMethod(
@@ -590,6 +595,86 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 
 		if savedGas > 0 {
 			st.gas += savedGas
+		}
+	}
+	st.refundGas(apricotPhase1)
+	st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+
+	return &ExecutionResult{
+		UsedGas:    st.gasUsed(),
+		Err:        vmerr,
+		ReturnData: ret,
+	}, nil
+}
+
+// [EVM++] HARDFORK
+func (st *StateTransition) TransitionDb1() (*ExecutionResult, error) {
+	// First check this message satisfies all consensus rules before
+	// applying the message. The rules include these clauses
+	//
+	// 1. the nonce of the message caller is correct
+	// 2. caller has enough balance to cover transaction fee(gaslimit * gasprice)
+	// 3. the amount of gas required is available in the block
+	// 4. the purchased gas is enough to cover intrinsic usage
+	// 5. there is no overflow when calculating intrinsic gas
+	// 6. caller has enough balance to cover asset transfer for **topmost** call
+
+	// Check clauses 1-3, buy gas if everything is correct
+	if err := st.preCheck(); err != nil {
+		return nil, err
+	}
+	msg := st.msg
+	sender := vm.AccountRef(msg.From())
+	homestead := st.evm.ChainConfig().IsHomestead(st.evm.Context.BlockNumber)
+	istanbul := st.evm.ChainConfig().IsIstanbul(st.evm.Context.BlockNumber)
+	apricotPhase1 := st.evm.ChainConfig().IsApricotPhase1(st.evm.Context.Time)
+
+	contractCreation := msg.To() == nil
+
+	// Check clauses 4-5, subtract intrinsic gas if everything is correct
+	gas, err := IntrinsicGas(st.data, st.msg.AccessList(), contractCreation, homestead, istanbul)
+	if err != nil {
+		return nil, err
+	}
+	if st.gas < gas {
+		return nil, fmt.Errorf("%w: have %d, want %d", ErrIntrinsicGas, st.gas, gas)
+	}
+	st.gas -= gas
+
+	// Check clause 6
+	if msg.Value().Sign() > 0 && !st.evm.Context.CanTransfer(st.state, msg.From(), msg.Value()) {
+		return nil, fmt.Errorf("%w: address %v", ErrInsufficientFundsForTransfer, msg.From().Hex())
+	}
+
+	// Set up the initial access list.
+	if rules := st.evm.ChainConfig().AvalancheRules(st.evm.Context.BlockNumber, st.evm.Context.Time); rules.IsApricotPhase2 {
+		st.state.PrepareAccessList(msg.From(), msg.To(), vm.ActivePrecompiles(rules), msg.AccessList())
+	}
+	var (
+		ret   []byte
+		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
+	)
+	if contractCreation {
+		ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
+	} else {
+		// Increment the nonce for the next transaction
+		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
+
+		txs, err := decodeBatchTx(st.to(), st.data)
+		if err != nil {
+			return nil, err
+		}
+		if txs != nil {
+			snapshot := st.evm.StateDB.Snapshot()
+			for _, tx := range txs {
+				ret, st.gas, vmerr = st.evm.Call(sender, tx.To, tx.Data, st.gas, tx.Value)
+				if vmerr != nil {
+					st.evm.StateDB.RevertToSnapshot(snapshot)
+					break
+				}
+			}
+		} else {
+			ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 		}
 	}
 	st.refundGas(apricotPhase1)
