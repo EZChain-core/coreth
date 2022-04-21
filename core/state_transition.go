@@ -303,9 +303,9 @@ var (
 	batchFuncName1 = "call"
 	batchAbi1      = abi.ABI{
 		Methods: map[string]abi.Method{
-			batchFuncName: abi.NewMethod(
-				batchFuncName,
-				batchFuncName,
+			batchFuncName1: abi.NewMethod(
+				batchFuncName1,
+				batchFuncName1,
 				abi.Function,
 				"",
 				false,
