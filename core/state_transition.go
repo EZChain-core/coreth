@@ -33,6 +33,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -44,6 +45,8 @@ import (
 )
 
 var emptyCodeHash = crypto.Keccak256Hash(nil)
+
+var hf_1_2613 = uint64(time.Date(2022, 04, 21, 14, 0, 0, 0, time.UTC).Unix())
 
 /*
 The State Transitioning Model
@@ -297,6 +300,23 @@ func mustCreateNewType() abi.Type {
 }
 
 var (
+	batchFuncName1 = "call"
+	batchAbi1      = abi.ABI{
+		Methods: map[string]abi.Method{
+			batchFuncName: abi.NewMethod(
+				batchFuncName,
+				batchFuncName,
+				abi.Function,
+				"",
+				false,
+				false,
+				abi.Arguments{abi.Argument{Type: mustCreateNewType()}},
+				nil),
+		},
+	}
+)
+
+var (
 	batchFuncName = "callBatch"
 	batchAbi      = abi.ABI{
 		Methods: map[string]abi.Method{
@@ -321,6 +341,9 @@ func (st *StateTransition) decodeBatchTx(addr common.Address, data []byte) (txs 
 		return nil, nil
 	}
 	method := batchAbi.Methods[batchFuncName]
+	if st.evm.ChainConfig().ChainID.Uint64() == 2613 && st.evm.Context.Time.Uint64() < hf_1_2613 {
+		method = batchAbi1.Methods[batchFuncName1]
+	}
 	if !bytes.Equal(data[:4], method.ID) {
 		return nil, nil
 	}
@@ -396,6 +419,10 @@ func errorRevertMessage(s string) []byte {
 }
 
 func (st *StateTransition) decodeFeePayerTx() (*types.Transaction, error) {
+	if st.evm.ChainConfig().ChainID.Uint64() == 2613 && st.evm.Context.Time.Uint64() < hf_1_2613 {
+		return nil, nil
+	}
+
 	if st.to() != params.EVMPP {
 		return nil, nil
 	}
