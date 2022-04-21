@@ -313,19 +313,19 @@ var (
 	}
 )
 
-func isBatchTx(addr common.Address, input []byte) bool {
-	if input == nil || len(input) < 4 {
-		return false
+func (st *StateTransition) decodeBatchTx(addr common.Address, data []byte) (txs []*Tx, err error) {
+	if addr != params.EVMPP {
+		return nil, nil
 	}
-	return bytes.Equal(input[:4], batchAbi.Methods[batchFuncName].ID) && addr == params.EVMPP
-}
-
-func decodeBatchTx(addr common.Address, encodedData []byte) (txs []*Tx, err error) {
-	if !isBatchTx(addr, encodedData) {
+	if data == nil || len(data) < 4 {
+		return nil, nil
+	}
+	method := batchAbi.Methods[batchFuncName]
+	if !bytes.Equal(data[:4], method.ID) {
 		return nil, nil
 	}
 
-	params, err := batchAbi.Methods[batchFuncName].Inputs.Unpack(encodedData[4:])
+	params, err := method.Inputs.Unpack(data[4:])
 	if err != nil {
 		return nil, err
 	}
@@ -395,20 +395,19 @@ func errorRevertMessage(s string) []byte {
 	return msg
 }
 
-func isFeePayerTx(input []byte, addr common.Address) bool {
-	if input == nil || len(input) < 4 {
-		return false
-	}
-
-	return bytes.Equal(input[:4], feePayerAbi.Methods[feePayerFuncName].ID) && addr == params.EVMPP
-}
-
 func (st *StateTransition) decodeFeePayerTx() (*types.Transaction, error) {
-	if !isFeePayerTx(st.data, st.to()) {
+	if st.to() != params.EVMPP {
+		return nil, nil
+	}
+	if st.data == nil || len(st.data) < 4 {
+		return nil, nil
+	}
+	method := feePayerAbi.Methods[feePayerFuncName]
+	if !bytes.Equal(st.data[:4], method.ID) {
 		return nil, nil
 	}
 
-	params, err := feePayerAbi.Methods[feePayerFuncName].Inputs.Unpack(st.data[4:])
+	params, err := method.Inputs.Unpack(st.data[4:])
 	if err != nil {
 		return nil, err
 	}
@@ -570,7 +569,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 			st.state.AddBalance(payee, st.value)
 		}
 
-		batchTxs, err := decodeBatchTx(to, data)
+		batchTxs, err := st.decodeBatchTx(to, data)
 		if err != nil {
 			return nil, err
 		}
