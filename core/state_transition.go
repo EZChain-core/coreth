@@ -46,7 +46,7 @@ import (
 
 var emptyCodeHash = crypto.Keccak256Hash(nil)
 
-var hf_1_2613 = uint64(time.Date(2022, 04, 21, 14, 0, 0, 0, time.UTC).Unix())
+var hf_1_2613 = uint64(time.Date(2022, 04, 22, 16, 0, 0, 0, time.UTC).Unix())
 
 /*
 The State Transitioning Model
