@@ -33,6 +33,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -44,6 +45,8 @@ import (
 )
 
 var emptyCodeHash = crypto.Keccak256Hash(nil)
+
+var hf_1_2613 = uint64(time.Date(2022, 04, 22, 16, 0, 0, 0, time.UTC).Unix())
 
 /*
 The State Transitioning Model
@@ -297,12 +300,12 @@ func mustCreateNewType() abi.Type {
 }
 
 var (
-	batchCallFuncName = "call"
-	batchAbi          = abi.ABI{
+	batchFuncName1 = "call"
+	batchAbi1      = abi.ABI{
 		Methods: map[string]abi.Method{
-			batchCallFuncName: abi.NewMethod(
-				batchCallFuncName,
-				batchCallFuncName,
+			batchFuncName1: abi.NewMethod(
+				batchFuncName1,
+				batchFuncName1,
 				abi.Function,
 				"",
 				false,
@@ -313,19 +316,39 @@ var (
 	}
 )
 
-func isBatchTx(addr common.Address, input []byte) bool {
-	if input == nil || len(input) < 4 {
-		return false
+var (
+	batchFuncName = "callBatch"
+	batchAbi      = abi.ABI{
+		Methods: map[string]abi.Method{
+			batchFuncName: abi.NewMethod(
+				batchFuncName,
+				batchFuncName,
+				abi.Function,
+				"",
+				false,
+				false,
+				abi.Arguments{abi.Argument{Type: mustCreateNewType()}},
+				nil),
+		},
 	}
-	return bytes.Equal(input[:4], batchAbi.Methods[batchCallFuncName].ID) && addr == params.EVMPP
-}
+)
 
-func decodeBatchTx(addr common.Address, encodedData []byte) (txs []*Tx, err error) {
-	if !isBatchTx(addr, encodedData) {
+func (st *StateTransition) decodeBatchTx(addr common.Address, data []byte) (txs []*Tx, err error) {
+	if addr != params.EVMPP {
+		return nil, nil
+	}
+	if data == nil || len(data) < 4 {
+		return nil, nil
+	}
+	method := batchAbi.Methods[batchFuncName]
+	if st.evm.ChainConfig().ChainID.Uint64() == 2613 && st.evm.Context.Time.Uint64() < hf_1_2613 {
+		method = batchAbi1.Methods[batchFuncName1]
+	}
+	if !bytes.Equal(data[:4], method.ID) {
 		return nil, nil
 	}
 
-	params, err := batchAbi.Methods[batchCallFuncName].Inputs.Unpack(encodedData[4:])
+	params, err := method.Inputs.Unpack(data[4:])
 	if err != nil {
 		return nil, err
 	}
@@ -342,6 +365,98 @@ func decodeBatchTx(addr common.Address, encodedData []byte) (txs []*Tx, err erro
 		return nil, err
 	}
 	return txs, nil
+}
+
+var (
+	Address, _ = abi.NewType("address", "", nil)
+	Bytes, _   = abi.NewType("bytes", "", nil)
+	Uint256, _ = abi.NewType("uint256", "", nil)
+	String, _  = abi.NewType("string", "", nil)
+
+	feePayerFuncName = "payFor"
+	feePayerAbi      = abi.ABI{
+		Methods: map[string]abi.Method{
+			feePayerFuncName: abi.NewMethod(
+				feePayerFuncName,
+				feePayerFuncName,
+				abi.Function,
+				"",
+				false,
+				false,
+				abi.Arguments{abi.Argument{Name: "to", Type: Address},
+					abi.Argument{Name: "data", Type: Bytes},
+					abi.Argument{Name: "nonce", Type: Uint256},
+					abi.Argument{Name: "gasLimit", Type: Uint256},
+					abi.Argument{Name: "v", Type: Uint256},
+					abi.Argument{Name: "r", Type: Uint256},
+					abi.Argument{Name: "s", Type: Uint256},
+				},
+				nil),
+		},
+	}
+
+	errorAbi = abi.ABI{
+		Methods: map[string]abi.Method{
+			"Error": abi.NewMethod(
+				"Error",
+				"Error",
+				abi.Function,
+				"",
+				false,
+				false,
+				abi.Arguments{abi.Argument{Name: "Message", Type: String}},
+				nil),
+		},
+	}
+)
+
+func errorRevertMessage(s string) []byte {
+	msg, err := errorAbi.Pack("Error", s)
+	if err != nil {
+		panic(err)
+	}
+	return msg
+}
+
+func (st *StateTransition) decodeFeePayerTx() (*types.Transaction, error) {
+	if st.evm.ChainConfig().ChainID.Uint64() == 2613 && st.evm.Context.Time.Uint64() < hf_1_2613 {
+		return nil, nil
+	}
+
+	if st.to() != params.EVMPP {
+		return nil, nil
+	}
+	if st.data == nil || len(st.data) < 4 {
+		return nil, nil
+	}
+	method := feePayerAbi.Methods[feePayerFuncName]
+	if !bytes.Equal(st.data[:4], method.ID) {
+		return nil, nil
+	}
+
+	params, err := method.Inputs.Unpack(st.data[4:])
+	if err != nil {
+		return nil, err
+	}
+
+	if len(params) != 7 {
+		return nil, errors.New("call: invalid number of arguments")
+	}
+
+	to := (params[0]).(common.Address)
+
+	tx := types.NewTx(&types.LegacyTx{
+		GasPrice: big.NewInt(0),
+		To:       &to,
+		Data:     params[1].([]byte),
+		Nonce:    params[2].(*big.Int).Uint64(),
+		Gas:      params[3].(*big.Int).Uint64(),
+		V:        params[4].(*big.Int),
+		R:        params[5].(*big.Int),
+		S:        params[6].(*big.Int),
+	})
+
+	return tx, nil
 }
 
 // [EVM--]
@@ -404,20 +519,91 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	var (
 		ret   []byte
 		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
+		payee common.Address
+		to    common.Address = st.to()
+		data  []byte         = st.data
 	)
+
 	if contractCreation {
 		ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 
-		txs, err := decodeBatchTx(st.to(), st.data)
+		payerTx, err := st.decodeFeePayerTx()
 		if err != nil {
 			return nil, err
 		}
-		if txs != nil {
+
+		var savedGas uint64
+
+		if payerTx != nil {
+			if st.gas < payerTx.Gas() {
+				return &ExecutionResult{
+					UsedGas:    st.gasUsed(),
+					Err:        vm.ErrOutOfGas,
+					ReturnData: ret,
+				}, nil
+			}
+			savedGas = st.gas - payerTx.Gas() // save the remaining gas of payer
+			st.gas = payerTx.Gas()
+
+			payeeInstrinsicGas, err := IntrinsicGas(payerTx.Data(), payerTx.AccessList(), false, homestead, istanbul)
+			if err != nil {
+				return nil, err
+			}
+
+			if payerTx.Gas() < payeeInstrinsicGas {
+				return &ExecutionResult{
+					UsedGas:    st.gasUsed(),
+					Err:        vmerr,
+					ReturnData: errorRevertMessage("payee: intrinsic gas too low"),
+				}, nil
+			}
+
+			st.gas -= payeeInstrinsicGas
+
+			signer := types.MakeSigner(st.evm.ChainConfig(), st.evm.Context.BlockNumber, st.evm.Context.Time)
+			payee, err = types.Sender(signer, payerTx)
+
+			if err != nil {
+				return &ExecutionResult{
+					UsedGas:    st.gasUsed(),
+					Err:        vmerr,
+					ReturnData: errorRevertMessage("payee: invalid signature"),
+				}, nil
+			}
+
+			sender = vm.AccountRef(payee)
+			to = *payerTx.To()
+			data = payerTx.Data()
+
+			payeeNonce := st.state.GetNonce(payee)
+
+			if payeeNonce != payerTx.Nonce() {
+				return &ExecutionResult{
+					UsedGas:    st.gasUsed(),
+					Err:        vmerr,
+					ReturnData: errorRevertMessage("payee: invalid nonce"),
+				}, nil
+			}
+
+			// Increment the nonce for payee account
+			st.state.SetNonce(payee, payeeNonce+1)
+
+			// transfer value from Payer to Payee account
+			st.state.SubBalance(st.msg.From(), st.value)
+			st.state.AddBalance(payee, st.value)
+		}
+
+		batchTxs, err := st.decodeBatchTx(to, data)
+		if err != nil {
+			return nil, err
+		}
+
+		if batchTxs != nil {
 			snapshot := st.evm.StateDB.Snapshot()
-			for _, tx := range txs {
+			for _, tx := range batchTxs {
 				ret, st.gas, vmerr = st.evm.Call(sender, tx.To, tx.Data, st.gas, tx.Value)
 				if vmerr != nil {
 					st.evm.StateDB.RevertToSnapshot(snapshot)
@@ -425,7 +611,11 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 				}
 			}
 		} else {
-			ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
+			ret, st.gas, vmerr = st.evm.Call(sender, to, data, st.gas, st.value)
+		}
+
+		if savedGas > 0 {
+			st.gas += savedGas
 		}
 	}
 	st.refundGas(apricotPhase1)
