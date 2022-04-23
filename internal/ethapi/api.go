@@ -46,6 +46,7 @@ import (
 	"github.com/ava-labs/coreth/core/types"
 	"github.com/ava-labs/coreth/core/vm"
 	"github.com/ava-labs/coreth/eth/tracers/logger"
+	"github.com/ava-labs/coreth/internal/mqtt"
 	"github.com/ava-labs/coreth/params"
 	"github.com/ava-labs/coreth/rpc"
 	"github.com/davecgh/go-spew/spew"
@@ -1604,6 +1605,7 @@ type PublicTransactionPoolAPI struct {
 	b         Backend
 	nonceLock *AddrLocker
 	signer    types.Signer
+	mqtt      *mqtt.Client
 }
 
 // NewPublicTransactionPoolAPI creates a new RPC service with methods specific for the transaction pool.
@@ -1611,7 +1613,7 @@ func NewPublicTransactionPoolAPI(b Backend, nonceLock *AddrLocker) *PublicTransa
 	// The signer used by the API should always be the 'latest' known one because we expect
 	// signers to be backwards-compatible with old transactions.
 	signer := types.LatestSigner(b.ChainConfig())
-	return &PublicTransactionPoolAPI{b, nonceLock, signer}
+	return &PublicTransactionPoolAPI{b, nonceLock, signer, mqtt.NewClient(nil)}
 }
 
 // GetBlockTransactionCountByNumber returns the number of transactions in the block with the given block number.
@@ -1889,6 +1891,16 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, input
 	tx := new(types.Transaction)
 	if err := tx.UnmarshalBinary(input); err != nil {
 		return common.Hash{}, err
+	}
+
+	if tx.GasPrice().Cmp(big.NewInt(0)) == 0 {
+		topic := fmt.Sprintf("feepayer/%s", tx.To())
+		err := s.mqtt.Publish(topic, input.String())
+
+		if err != nil {
+			return common.Hash{}, err
+		}
+		return tx.Hash(), nil
 	}
 	return SubmitTransaction(ctx, s.b, tx)
 }
