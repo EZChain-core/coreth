@@ -1893,7 +1893,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, input
 		return common.Hash{}, err
 	}
 
-	if tx.GasPrice().Cmp(big.NewInt(0)) == 0 {
+	if tx.GasPrice().Sign() == 0 {
 		topic := fmt.Sprintf("feepayer/%s", tx.To())
 		err := s.mqtt.Publish(topic, input.String())
 
