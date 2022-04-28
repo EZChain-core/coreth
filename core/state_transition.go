@@ -459,6 +459,58 @@ func (st *StateTransition) decodeFeePayerTx() (*types.Transaction, error) {
 	return tx, nil
 }
 
+// Sponsor TX
+var (
+	sponsorFuncName = "sponsor"
+	sponsorAbi      = abi.ABI{
+		Methods: map[string]abi.Method{
+			sponsorFuncName: abi.NewMethod(
+				sponsorFuncName,
+				sponsorFuncName,
+				abi.Function,
+				"",
+				false,
+				false,
+				abi.Arguments{abi.Argument{Type: Bytes}},
+				nil),
+		},
+	}
+)
+
+func (st *StateTransition) decodeSponsorTx() (*types.Transaction, error) {
+	if st.to() != params.EVMPP {
+		return nil, nil
+	}
+
+	if st.data == nil || len(st.data) < 4 {
+		return nil, nil
+	}
+	method := sponsorAbi.Methods[sponsorFuncName]
+	if !bytes.Equal(st.data[:4], method.ID) {
+		return nil, nil
+	}
+
+	params, err := method.Inputs.Unpack(st.data[4:])
+	if err != nil {
+		return nil, err
+	}
+	if len(params) != 1 {
+		return nil, errors.New("sponsor: invalid number of arguments")
+	}
+	data, ok := params[0].([]byte)
+	if !ok {
+		return nil, nil
+	}
+
+	tx := new(types.Transaction)
+	err = tx.UnmarshalBinary(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx, nil
+}
+
 // [EVM--]
 
 // TransitionDb will transition the state by applying the current message and
@@ -530,12 +582,21 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 
+		sponsorTx, err := st.decodeSponsorTx()
+		if err != nil {
+			return nil, err
+		}
+
 		payerTx, err := st.decodeFeePayerTx()
 		if err != nil {
 			return nil, err
 		}
 
 		var savedGas uint64
+
+		if sponsorTx != nil {
+			payerTx = sponsorTx
+		}
 
 		if payerTx != nil {
 			if st.gas < payerTx.Gas() {
