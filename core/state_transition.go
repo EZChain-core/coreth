@@ -419,6 +419,16 @@ func errorRevertMessage(s string) []byte {
 }
 
 func (st *StateTransition) decodeFeePayerTx() (*types.Transaction, error) {
+	tx, err := st.decodeSponsorTx()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if tx != nil {
+		return tx, nil
+	}
+
 	if st.evm.ChainConfig().ChainID.Uint64() == 2613 && st.evm.Context.Time.Uint64() < hf_1_2613 {
 		return nil, nil
 	}
@@ -445,7 +455,7 @@ func (st *StateTransition) decodeFeePayerTx() (*types.Transaction, error) {
 
 	to := (params[0]).(common.Address)
 
-	tx := types.NewTx(&types.LegacyTx{
+	tx = types.NewTx(&types.LegacyTx{
 		GasPrice: big.NewInt(0),
 		To:       &to,
 		Data:     params[1].([]byte),
@@ -582,22 +592,12 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 
-		sponsorTx, err := st.decodeSponsorTx()
-		if err != nil {
-			return nil, err
-		}
-
 		payerTx, err := st.decodeFeePayerTx()
 		if err != nil {
 			return nil, err
 		}
 
 		var savedGas uint64
-
-		if sponsorTx != nil {
-			payerTx = sponsorTx
-		}
-
 		if payerTx != nil {
 			if st.gas < payerTx.Gas() {
 				return &ExecutionResult{
