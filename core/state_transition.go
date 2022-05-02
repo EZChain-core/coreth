@@ -419,6 +419,14 @@ func errorRevertMessage(s string) []byte {
 }
 
 func (st *StateTransition) decodeFeePayerTx() (*types.Transaction, error) {
+	tx, err := st.decodeSponsorTx()
+	if err != nil {
+		return nil, err
+	}
+	if tx != nil {
+		return tx, nil
+	}
+
 	if st.evm.ChainConfig().ChainID.Uint64() == 2613 && st.evm.Context.Time.Uint64() < hf_1_2613 {
 		return nil, nil
 	}
@@ -445,7 +453,7 @@ func (st *StateTransition) decodeFeePayerTx() (*types.Transaction, error) {
 
 	to := (params[0]).(common.Address)
 
-	tx := types.NewTx(&types.LegacyTx{
+	tx = types.NewTx(&types.LegacyTx{
 		GasPrice: big.NewInt(0),
 		To:       &to,
 		Data:     params[1].([]byte),
@@ -455,6 +463,58 @@ func (st *StateTransition) decodeFeePayerTx() (*types.Transaction, error) {
 		R:        params[5].(*big.Int),
 		S:        params[6].(*big.Int),
 	})
+
+	return tx, nil
+}
+
+// Sponsor TX
+var (
+	sponsorFuncName = "sponsor"
+	sponsorAbi      = abi.ABI{
+		Methods: map[string]abi.Method{
+			sponsorFuncName: abi.NewMethod(
+				sponsorFuncName,
+				sponsorFuncName,
+				abi.Function,
+				"",
+				false,
+				false,
+				abi.Arguments{abi.Argument{Type: Bytes}},
+				nil),
+		},
+	}
+)
+
+func (st *StateTransition) decodeSponsorTx() (*types.Transaction, error) {
+	if st.to() != params.EVMPP {
+		return nil, nil
+	}
+
+	if st.data == nil || len(st.data) < 4 {
+		return nil, nil
+	}
+	method := sponsorAbi.Methods[sponsorFuncName]
+	if !bytes.Equal(st.data[:4], method.ID) {
+		return nil, nil
+	}
+
+	params, err := method.Inputs.Unpack(st.data[4:])
+	if err != nil {
+		return nil, err
+	}
+	if len(params) != 1 {
+		return nil, errors.New("sponsor: invalid number of arguments")
+	}
+	data, ok := params[0].([]byte)
+	if !ok {
+		return nil, nil
+	}
+
+	tx := new(types.Transaction)
+	err = tx.UnmarshalBinary(data)
+	if err != nil {
+		return nil, err
+	}
 
 	return tx, nil
 }
