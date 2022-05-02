@@ -420,11 +420,9 @@ func errorRevertMessage(s string) []byte {
 
 func (st *StateTransition) decodeFeePayerTx() (*types.Transaction, error) {
 	tx, err := st.decodeSponsorTx()
-
 	if err != nil {
 		return nil, err
 	}
-
 	if tx != nil {
 		return tx, nil
 	}
@@ -598,6 +596,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		}
 
 		var savedGas uint64
+
 		if payerTx != nil {
 			if st.gas < payerTx.Gas() {
 				return &ExecutionResult{
