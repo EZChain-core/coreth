@@ -582,6 +582,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		payee common.Address
 		to    common.Address = st.to()
 		data  []byte         = st.data
+		value *big.Int       = st.value
 	)
 
 	if contractCreation {
@@ -637,6 +638,9 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 			sender = vm.AccountRef(payee)
 			to = *payerTx.To()
 			data = payerTx.Data()
+			if st.evm.ChainConfig().ChainID.Uint64() != 2613 /* or time after hardfork*/ {
+				value = payerTx.Value()
+			}
 
 			payeeNonce := st.state.GetNonce(payee)
 
@@ -671,7 +675,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 				}
 			}
 		} else {
-			ret, st.gas, vmerr = st.evm.Call(sender, to, data, st.gas, st.value)
+			ret, st.gas, vmerr = st.evm.Call(sender, to, data, st.gas, value)
 		}
 
 		if savedGas > 0 {
