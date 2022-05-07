@@ -47,6 +47,7 @@ import (
 var emptyCodeHash = crypto.Keccak256Hash(nil)
 
 var hf_1_2613 = uint64(time.Date(2022, 04, 22, 16, 0, 0, 0, time.UTC).Unix())
+var hf_2_2613 = uint64(time.Date(2022, 05, 06, 14, 0, 0, 0, time.UTC).Unix())
 
 /*
 The State Transitioning Model
@@ -427,6 +428,10 @@ func (st *StateTransition) decodeFeePayerTx() (*types.Transaction, error) {
 		return tx, nil
 	}
 
+	if st.evm.Context.Time.Uint64() >= hf_2_2613 {
+		return nil, nil
+	}
+
 	if st.evm.ChainConfig().ChainID.Uint64() == 2613 && st.evm.Context.Time.Uint64() < hf_1_2613 {
 		return nil, nil
 	}
@@ -582,6 +587,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		payee common.Address
 		to    common.Address = st.to()
 		data  []byte         = st.data
+		value *big.Int       = st.value
 	)
 
 	if contractCreation {
@@ -637,6 +643,9 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 			sender = vm.AccountRef(payee)
 			to = *payerTx.To()
 			data = payerTx.Data()
+			if st.evm.ChainConfig().ChainID.Uint64() != 2613 || st.evm.Context.Time.Uint64() >= hf_2_2613 {
+				value = payerTx.Value()
+			}
 
 			payeeNonce := st.state.GetNonce(payee)
 
@@ -671,7 +680,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 				}
 			}
 		} else {
-			ret, st.gas, vmerr = st.evm.Call(sender, to, data, st.gas, st.value)
+			ret, st.gas, vmerr = st.evm.Call(sender, to, data, st.gas, value)
 		}
 
 		if savedGas > 0 {

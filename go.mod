@@ -14,7 +14,7 @@ require (
 	github.com/google/uuid v1.1.5
 	github.com/gorilla/rpc v1.2.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/harmony-one/vdf v1.0.0 // indirect
+	github.com/harmony-one/vdf v1.0.0
 	github.com/hashicorp/go-bexpr v0.1.10
 	github.com/hashicorp/go-plugin v1.4.3
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
@@ -39,6 +39,8 @@ require (
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	gopkg.in/urfave/cli.v1 v1.20.0
 )
+
+require github.com/eclipse/paho.mqtt.golang v1.2.0
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
